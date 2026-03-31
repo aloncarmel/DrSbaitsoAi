@@ -1,0 +1,86 @@
+@import "tailwindcss";
+@import "@xterm/xterm/css/xterm.css";
+
+@font-face {
+  font-family: "More Perfect DOS VGA";
+  src: url("/fonts/MorePerfectDOSVGA.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
+:root {
+  --color-ink: #090b12;
+  --color-paper: #f5f7fb;
+  --color-muted: #a9b0c2;
+  --color-accent: #84b7ff;
+  --color-accent-soft: #7ea1e6;
+  --color-dos-blue: #0005b7;
+  --background: var(--color-ink);
+  --foreground: var(--color-paper);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: "Avenir Next", "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", "Menlo", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), sans-serif;
+}
+
+.dos-terminal-host {
+  image-rendering: pixelated;
+}
+
+a,
+button,
+input {
+  transition:
+    color 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease,
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+::selection {
+  background: rgba(132, 183, 255, 0.28);
+  color: white;
+}
+
+@keyframes terminalFade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cursorPulse {
+  0%,
+  49% {
+    opacity: 1;
+  }
+
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
