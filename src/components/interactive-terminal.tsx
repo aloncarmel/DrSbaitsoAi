@@ -47,8 +47,21 @@ function extractHistory(lines: string[]): { role: string; content: string }[] {
   return history.slice(-20);
 }
 
+async function fetchSessionToken(): Promise<string | null> {
+  try {
+    const res = await fetch("/api/token");
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.token ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function InteractiveTerminal() {
   const [session, setSession] = useState(createInitialSession);
+  const sessionTokenRef = useRef<string | null>(null);
+  const tokenExpiresRef = useRef<number>(0);
   const [currentInput, setCurrentInput] = useState("");
   const [ephemeralLines, setEphemeralLines] = useState<string[]>([]);
   const [loadingPhase, setLoadingPhase] = useState<"processing" | "synth" | null>(
@@ -69,6 +82,19 @@ export function InteractiveTerminal() {
   const handleSubmitRef = useRef<(submittedInput: string) => void>(() => {});
   const playSpeechRef = useRef<(text: string) => Promise<void>>(async () => {});
 
+  async function getToken(): Promise<string> {
+    if (sessionTokenRef.current && Date.now() < tokenExpiresRef.current - 30_000) {
+      return sessionTokenRef.current;
+    }
+    const token = await fetchSessionToken();
+    if (token) {
+      sessionTokenRef.current = token;
+      const dotIdx = token.indexOf(".");
+      tokenExpiresRef.current = parseInt(token.slice(0, dotIdx), 10);
+    }
+    return token ?? "";
+  }
+
   async function requestModelReply(inputText: string, snapshot: typeof session) {
     const controller = new AbortController();
     modelAbortRef.current = controller;
@@ -76,13 +102,15 @@ export function InteractiveTerminal() {
     setEphemeralLines(["PLEASE WAIT", "PROCESSING ."]);
 
     try {
+      const token = await getToken();
       const response = await fetch("/api/respond", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "x-session-token": token,
         },
         body: JSON.stringify({
-          input: inputText,
+          input: inputText.slice(0, 1000),
           mode: snapshot.mode,
           name: snapshot.name,
           questionsRemaining: snapshot.questionBudget,
@@ -222,12 +250,14 @@ export function InteractiveTerminal() {
     const controller = new AbortController();
     requestAbortRef.current = controller;
 
+    const token = await getToken();
     const response = await fetch("/api/tts", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "x-session-token": token,
       },
-      body: JSON.stringify({ input: text }),
+      body: JSON.stringify({ input: text.slice(0, 1000) }),
       signal: controller.signal,
     });
 

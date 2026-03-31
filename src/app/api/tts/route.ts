@@ -1,10 +1,14 @@
 import { NextRequest } from "next/server";
 import { transformToSbaitsoSpeech } from "@/lib/audio/sbaitso-voice";
+import { guardRequest, MAX_INPUT_LENGTH } from "@/lib/api-guard";
 
 const DEFAULT_VOICE = "onyx";
 const DEFAULT_MODEL = "gpt-4o-mini-tts";
 
 export async function POST(request: NextRequest) {
+  const blocked = guardRequest(request, { maxPerMinute: 20 });
+  if (blocked) return blocked;
+
   const apiKey = process.env.OPENAI_KEY ?? process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
@@ -19,7 +23,7 @@ export async function POST(request: NextRequest) {
     voice?: string;
   };
 
-  const input = body.input?.trim();
+  const input = body.input?.trim()?.slice(0, MAX_INPUT_LENGTH);
 
   if (!input) {
     return Response.json({ error: "Missing input." }, { status: 400 });

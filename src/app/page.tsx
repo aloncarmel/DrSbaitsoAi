@@ -71,10 +71,10 @@ export default function Home() {
             <div className="mt-10 w-full max-w-[min(100%,1440px)] sm:mt-12">
               <div className="mx-auto">
                 <Image
-                  src="/landing-terminal-v2.png"
+                  src="/hero-terminal-v3.png"
                   alt="Dr. Sbaitso terminal screenshot"
-                  width={2128}
-                  height={930}
+                  width={2140}
+                  height={1178}
                   priority
                   className="h-auto w-full rounded-[2px] border border-white/35 shadow-[0_18px_60px_rgba(0,0,0,0.32)]"
                 />
