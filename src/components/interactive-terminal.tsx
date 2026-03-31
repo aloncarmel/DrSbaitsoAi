@@ -58,10 +58,18 @@ async function fetchSessionToken(): Promise<string | null> {
   }
 }
 
+function isMobileDevice() {
+  if (typeof navigator === "undefined") return false;
+  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+}
+
 export function InteractiveTerminal() {
   const [session, setSession] = useState(createInitialSession);
+  const [pendingAudio, setPendingAudio] = useState<ArrayBuffer | null>(null);
+  const isMobileRef = useRef(false);
   const sessionTokenRef = useRef<string | null>(null);
   const tokenExpiresRef = useRef<number>(0);
+  const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const [currentInput, setCurrentInput] = useState("");
   const [ephemeralLines, setEphemeralLines] = useState<string[]>([]);
   const [loadingPhase, setLoadingPhase] = useState<"processing" | "synth" | null>(
@@ -289,8 +297,33 @@ export function InteractiveTerminal() {
     return audioContextRef.current;
   }
 
+  function playViaAudioElement(audioData: ArrayBuffer) {
+    const blob = new Blob([audioData], { type: "audio/mpeg" });
+    const url = URL.createObjectURL(blob);
+
+    if (audioElementRef.current) {
+      audioElementRef.current.pause();
+      URL.revokeObjectURL(audioElementRef.current.src);
+    }
+
+    const audio = new Audio(url);
+    audio.playsInline = true;
+    audioElementRef.current = audio;
+    audio.onended = () => {
+      URL.revokeObjectURL(url);
+      audioElementRef.current = null;
+    };
+    audio.play().catch(() => {});
+  }
+
   async function playSpeechBuffer(audioData: ArrayBuffer) {
     stopAudio();
+
+    // On mobile, queue audio for the play button
+    if (isMobileRef.current) {
+      setPendingAudio(audioData.slice(0));
+      return;
+    }
 
     const context = await ensureAudioContext();
 
@@ -298,7 +331,6 @@ export function InteractiveTerminal() {
       return;
     }
 
-    // Resume if suspended (mobile browsers)
     if (context.state === "suspended") {
       await context.resume();
     }
@@ -371,6 +403,7 @@ export function InteractiveTerminal() {
 
     // Warm up AudioContext during user gesture (required for mobile)
     void ensureAudioContext();
+    setPendingAudio(null);
 
     stopAudio();
     modelAbortRef.current?.abort();
@@ -496,6 +529,7 @@ export function InteractiveTerminal() {
     term.open(terminalHostRef.current);
     scheduleStableFit();
     term.focus();
+    isMobileRef.current = isMobileDevice();
 
     // Unlock AudioContext on first touch (required for iOS/mobile)
     const unlockAudio = () => {
@@ -605,10 +639,27 @@ export function InteractiveTerminal() {
   }, [session.speech, session.voiceEnabled]);
 
     return (
-    <div
-      ref={terminalHostRef}
-      className="dos-terminal-host h-[100svh] w-full bg-[var(--color-dos-blue)]"
-    />
+    <div className="relative h-[100svh] w-full bg-[var(--color-dos-blue)]">
+      <div
+        ref={terminalHostRef}
+        className="dos-terminal-host h-full w-full"
+      />
+      {pendingAudio && (
+        <button
+          type="button"
+          onClick={() => {
+            playViaAudioElement(pendingAudio);
+            setPendingAudio(null);
+          }}
+          className="absolute bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full border-2 border-[#f6f363] bg-[#f6f363] shadow-lg active:scale-95"
+          aria-label="Play speech"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M8 5v14l11-7L8 5z" fill="#0005B7" />
+          </svg>
+        </button>
+      )}
+    </div>
   );
 }
 
