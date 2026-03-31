@@ -700,7 +700,7 @@ function buildDividerLine(width: number) {
 function buildCopyrightLine(width: number) {
   const innerWidth = Math.max(width - 2, 0);
   const text = centerPlainText(
-    "(c) Copyright Creative Labs, Inc. 2026, all rights reserved",
+    "(c) Copyright Creative Labs, Inc. 1996, all rights reserved",
     innerWidth,
   );
 
