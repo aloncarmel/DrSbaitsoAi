@@ -26,6 +26,27 @@ const ANSI = {
   userYellow: "\x1b[38;2;246;243;99m",
 } as const;
 
+function extractHistory(lines: string[]): { role: string; content: string }[] {
+  const history: { role: string; content: string }[] = [];
+  let assistantBuffer: string[] = [];
+
+  for (const line of lines) {
+    if (line.startsWith("> ")) {
+      if (assistantBuffer.length > 0) {
+        history.push({ role: "assistant", content: assistantBuffer.join("\n") });
+        assistantBuffer = [];
+      }
+      history.push({ role: "user", content: line.slice(2) });
+    } else if (line.trim() && !line.startsWith("PLEASE ENTER") && !line.startsWith("Please enter")) {
+      assistantBuffer.push(line);
+    }
+  }
+  if (assistantBuffer.length > 0) {
+    history.push({ role: "assistant", content: assistantBuffer.join("\n") });
+  }
+  return history.slice(-20);
+}
+
 export function InteractiveTerminal() {
   const [session, setSession] = useState(createInitialSession);
   const [currentInput, setCurrentInput] = useState("");
@@ -65,6 +86,7 @@ export function InteractiveTerminal() {
           mode: snapshot.mode,
           name: snapshot.name,
           questionsRemaining: snapshot.questionBudget,
+          history: extractHistory(snapshot.lines),
         }),
         signal: controller.signal,
       });
@@ -176,9 +198,11 @@ export function InteractiveTerminal() {
       input,
     );
 
+    term.write("\x1b[?25l");
     term.write("\x1b[2J\x1b[H");
     term.write(screen.join("\r\n"));
     term.write(`\x1b[${cursorRow + 1};${cursorCol + 1}H`);
+    term.write("\x1b[?25h");
   }
 
   function stopAudio() {
@@ -593,7 +617,12 @@ function buildDosScreen(
   screen[5] = `${leftPad}${boxBottom(innerWidth)}${leftPad}`;
   screen[6] = blankLine(safeCols);
 
-  const visibleLines = contentLines.flatMap((line) => wrapTranscriptLine(line, contentWidth));
+  const allWrapped = contentLines.flatMap((line) => wrapTranscriptLine(line, contentWidth));
+  const availableRows = safeRows - 7 - 2;
+  const visibleLines =
+    allWrapped.length > availableRows
+      ? allWrapped.slice(allWrapped.length - availableRows)
+      : allWrapped;
   let row = 7;
   for (const line of visibleLines) {
     if (row >= safeRows - 2) {
@@ -634,7 +663,7 @@ function buildHeaderTitleLine(width: number) {
   const left = "Sound Blaster";
   const centerPrimary = "D R   S B A I T S O";
   const centerCompact = "DR SBAITSO";
-  const right = "version GPT 5.4";
+  const right = "version GPT 5.4 mini";
   const center =
     innerWidth >= left.length + centerPrimary.length + right.length + 8
       ? centerPrimary

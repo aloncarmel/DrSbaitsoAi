@@ -1,13 +1,14 @@
 import { NextRequest } from "next/server";
 import { personaConfig } from "@/lib/persona/config";
 
-const DEFAULT_MODEL = "gpt-5.4";
+const DEFAULT_MODEL = "gpt-5.4-mini";
 
 type RespondRequest = {
   input?: string;
   mode?: string;
   name?: string | null;
   questionsRemaining?: number;
+  history?: { role: string; content: string }[];
 };
 
 export async function POST(request: NextRequest) {
@@ -34,6 +35,17 @@ export async function POST(request: NextRequest) {
     `QUESTIONS REMAINING THIS SESSION: ${body.questionsRemaining ?? personaConfig.maxQuestionsPerSession}`,
   ].join("\n");
 
+  const conversationInput: { role: string; content: string }[] = [];
+  if (body.history?.length) {
+    for (const msg of body.history) {
+      conversationInput.push({
+        role: msg.role === "user" ? "user" : "assistant",
+        content: msg.content,
+      });
+    }
+  }
+  conversationInput.push({ role: "user", content: input });
+
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
@@ -43,7 +55,7 @@ export async function POST(request: NextRequest) {
     body: JSON.stringify({
       model: process.env.OPENAI_MODEL ?? DEFAULT_MODEL,
       instructions,
-      input,
+      input: conversationInput,
       stream: true,
     }),
   });
