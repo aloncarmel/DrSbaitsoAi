@@ -16,6 +16,7 @@
   --color-accent: #84b7ff;
   --color-accent-soft: #7ea1e6;
   --color-dos-blue: #0005b7;
+  --color-homepage-blue: #05048a;
   --background: var(--color-ink);
   --foreground: var(--color-paper);
 }

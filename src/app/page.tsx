@@ -33,7 +33,7 @@ const detailRows = [
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-[var(--color-dos-blue)] text-white">
+    <main className="min-h-screen bg-[var(--color-homepage-blue)] text-white">
       <section className="relative border-b border-white/20">
         <div className="mx-auto flex min-h-[100svh] max-w-7xl flex-col px-6 pb-12 pt-8 sm:px-10 sm:pb-16 lg:px-12">
           <header className="flex items-center justify-center text-center text-[0.9rem] tracking-[0.18em] text-white/80">
@@ -56,7 +56,7 @@ export default function Home() {
             <div className="mt-10 flex flex-col gap-4 sm:flex-row">
               <Link
                 href="/chat"
-                className="inline-flex items-center justify-center border border-[#f6f363] bg-[#f6f363] px-7 py-3 font-['More_Perfect_DOS_VGA'] text-[0.9rem] tracking-[0.12em] text-[var(--color-dos-blue)] hover:bg-transparent hover:text-[#f6f363]"
+                className="inline-flex items-center justify-center border border-[#f6f363] bg-[#f6f363] px-7 py-3 font-['More_Perfect_DOS_VGA'] text-[0.9rem] tracking-[0.12em] text-[var(--color-homepage-blue)] hover:bg-transparent hover:text-[#f6f363]"
               >
                 RUN IN BROWSER
               </Link>
@@ -71,10 +71,10 @@ export default function Home() {
             <div className="mt-10 w-full max-w-[min(100%,1440px)] sm:mt-12">
               <div className="mx-auto">
                 <Image
-                  src="/landing-terminal.png"
+                  src="/landing-terminal-v2.png"
                   alt="Dr. Sbaitso terminal screenshot"
-                  width={2344}
-                  height={548}
+                  width={2128}
+                  height={930}
                   priority
                   className="h-auto w-full rounded-[2px] border border-white/35 shadow-[0_18px_60px_rgba(0,0,0,0.32)]"
                 />
@@ -111,7 +111,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="border-y border-white/18 bg-[var(--color-dos-blue)]">
+      <section className="border-y border-white/18 bg-[var(--color-homepage-blue)]">
         <div className="mx-auto grid max-w-7xl gap-8 px-6 py-16 sm:px-10 lg:grid-cols-[0.9fr_1.1fr] lg:px-12">
           <div>
             <p className="font-['More_Perfect_DOS_VGA'] text-[0.82rem] tracking-[0.18em] text-[#f6f363]">
@@ -195,7 +195,7 @@ export default function Home() {
         <div className="mt-10">
           <Link
             href="/chat"
-            className="inline-flex items-center justify-center border border-[#f6f363] bg-[#f6f363] px-7 py-3 font-['More_Perfect_DOS_VGA'] text-[0.9rem] tracking-[0.12em] text-[var(--color-dos-blue)] hover:bg-transparent hover:text-[#f6f363]"
+            className="inline-flex items-center justify-center border border-[#f6f363] bg-[#f6f363] px-7 py-3 font-['More_Perfect_DOS_VGA'] text-[0.9rem] tracking-[0.12em] text-[var(--color-homepage-blue)] hover:bg-transparent hover:text-[#f6f363]"
           >
             OPEN THE TERMINAL
           </Link>
