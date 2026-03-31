@@ -298,6 +298,11 @@ export function InteractiveTerminal() {
       return;
     }
 
+    // Resume if suspended (mobile browsers)
+    if (context.state === "suspended") {
+      await context.resume();
+    }
+
     const decoded = await context.decodeAudioData(audioData.slice(0));
     const source = context.createBufferSource();
     const preGain = context.createGain();
@@ -363,6 +368,9 @@ export function InteractiveTerminal() {
     if (!submittedInput.trim()) {
       return;
     }
+
+    // Warm up AudioContext during user gesture (required for mobile)
+    void ensureAudioContext();
 
     stopAudio();
     modelAbortRef.current?.abort();
@@ -488,7 +496,13 @@ export function InteractiveTerminal() {
     term.open(terminalHostRef.current);
     scheduleStableFit();
     term.focus();
-    void ensureAudioContext();
+
+    // Unlock AudioContext on first touch (required for iOS/mobile)
+    const unlockAudio = () => {
+      void ensureAudioContext();
+    };
+    terminalHostRef.current.addEventListener("touchstart", unlockAudio, { once: true });
+    terminalHostRef.current.addEventListener("click", unlockAudio, { once: true });
 
     terminalRef.current = term;
     fitAddonRef.current = fitAddon;

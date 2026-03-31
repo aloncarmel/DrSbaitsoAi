@@ -83,7 +83,7 @@ export function submitTerminalInput(
   session: TerminalSession,
   rawInput: string,
 ): SubmitResult {
-  const input = sanitizeInput(rawInput);
+  const input = sanitizeInput(rawInput).slice(0, 500);
   const normalizedInput = input.toUpperCase();
 
   if (!input) {
@@ -392,6 +392,17 @@ function handleSayCommand(
     );
   }
 
+  if (text.length > 200) {
+    return appendAssistant(
+      session,
+      nextLines,
+      ["THAT IS TOO LONG TO SAY.", "KEEP IT UNDER 200 CHARACTERS."],
+      {
+        speakText: "THAT IS TOO LONG TO SAY. KEEP IT UNDER 200 CHARACTERS.",
+      },
+    );
+  }
+
   return appendAssistant(session, nextLines, [text], {
     speakText: text,
     forceSpeech: true,
@@ -450,7 +461,7 @@ function normalizeReply(replyText: string) {
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean)
-    .map((line) => line.toUpperCase())
+    .map((line) => line.toUpperCase().slice(0, 200))
     .slice(0, 4);
 }
 
