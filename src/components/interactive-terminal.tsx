@@ -307,7 +307,7 @@ export function InteractiveTerminal() {
     }
 
     const audio = new Audio(url);
-    audio.playsInline = true;
+    (audio as unknown as Record<string, boolean>).playsInline = true;
     audioElementRef.current = audio;
     audio.onended = () => {
       URL.revokeObjectURL(url);
