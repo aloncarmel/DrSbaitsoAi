@@ -70,6 +70,8 @@ export function InteractiveTerminal() {
   const sessionTokenRef = useRef<string | null>(null);
   const tokenExpiresRef = useRef<number>(0);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
+  const letterBuffersRef = useRef<Map<string, AudioBuffer>>(new Map());
+  const letterLoadedRef = useRef(false);
   const [currentInput, setCurrentInput] = useState("");
   const [ephemeralLines, setEphemeralLines] = useState<string[]>([]);
   const [loadingPhase, setLoadingPhase] = useState<"processing" | "synth" | null>(
@@ -101,6 +103,46 @@ export function InteractiveTerminal() {
       tokenExpiresRef.current = parseInt(token.slice(0, dotIdx), 10);
     }
     return token ?? "";
+  }
+
+  async function preloadLetterSounds() {
+    if (letterLoadedRef.current) return;
+    letterLoadedRef.current = true;
+
+    const ctx = await ensureAudioContext();
+    if (!ctx) return;
+
+    const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    await Promise.all(
+      letters.split("").map(async (letter) => {
+        try {
+          const res = await fetch(`/audio/letters/${letter}.wav`);
+          if (!res.ok) return;
+          const buf = await res.arrayBuffer();
+          const decoded = await ctx.decodeAudioData(buf);
+          letterBuffersRef.current.set(letter, decoded);
+        } catch {}
+      }),
+    );
+  }
+
+  function playLetterSound(char: string) {
+    const letter = char.toUpperCase();
+    const buffer = letterBuffersRef.current.get(letter);
+    if (!buffer || !audioContextRef.current) return;
+
+    const ctx = audioContextRef.current;
+    if (ctx.state === "suspended") {
+      void ctx.resume();
+    }
+
+    const source = ctx.createBufferSource();
+    const gain = ctx.createGain();
+    source.buffer = buffer;
+    gain.gain.value = 0.7;
+    source.connect(gain);
+    gain.connect(ctx.destination);
+    source.start(0);
   }
 
   async function requestModelReply(inputText: string, snapshot: typeof session) {
@@ -200,20 +242,20 @@ export function InteractiveTerminal() {
       return;
     }
 
-    let speechAudio: ArrayBuffer | null = null;
+    let audioData: ArrayBuffer | null = null;
 
     if (playSpeechAfter && sessionRef.current.voiceEnabled) {
       setLoadingPhase("synth");
       setEphemeralLines(["PLEASE WAIT", "SYNTHESIZER INITIALIZING"]);
-      speechAudio = await fetchSpeechAudio(finalText);
+      audioData = await fetchSpeechAudio(finalText);
     }
 
     setLoadingPhase(null);
     setEphemeralLines([]);
     setSession((current) => applyModelReply(current, finalText, { withSpeech: false }));
 
-    if (speechAudio) {
-      await playSpeechBuffer(speechAudio);
+    if (audioData) {
+      await playAudioBuffer(audioData);
     }
   }
 
@@ -254,26 +296,85 @@ export function InteractiveTerminal() {
     }
   }
 
-  async function fetchSpeechAudio(text: string) {
+  async function fetchSpeechAudio(text: string): Promise<ArrayBuffer | null> {
     const controller = new AbortController();
     requestAbortRef.current = controller;
 
-    const token = await getToken();
-    const response = await fetch("/api/tts", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-session-token": token,
-      },
-      body: JSON.stringify({ input: text.slice(0, 1000) }),
-      signal: controller.signal,
-    });
+    try {
+      const token = await getToken();
+      const response = await fetch("/api/tts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-session-token": token,
+        },
+        body: JSON.stringify({ input: text.slice(0, 500) }),
+        signal: controller.signal,
+      });
 
-    if (!response.ok) {
+      if (!response.ok) return null;
+      return response.arrayBuffer();
+    } catch {
       return null;
     }
+  }
 
-    return response.arrayBuffer();
+  function playViaAudioElement(audioData: ArrayBuffer) {
+    const blob = new Blob([audioData], { type: "audio/mpeg" });
+    const url = URL.createObjectURL(blob);
+    if (audioElementRef.current) {
+      audioElementRef.current.pause();
+      URL.revokeObjectURL(audioElementRef.current.src);
+    }
+    const audio = new Audio(url);
+    (audio as unknown as Record<string, boolean>).playsInline = true;
+    audioElementRef.current = audio;
+    audio.onended = () => {
+      URL.revokeObjectURL(url);
+      audioElementRef.current = null;
+    };
+    audio.play().catch(() => {});
+  }
+
+  async function playAudioBuffer(audioData: ArrayBuffer) {
+    // On mobile, queue audio for play button
+    if (isMobileRef.current) {
+      setPendingAudio(audioData.slice(0));
+      return;
+    }
+
+    const context = await ensureAudioContext();
+    if (!context) return;
+    if (context.state === "suspended") await context.resume();
+
+    const decoded = await context.decodeAudioData(audioData.slice(0));
+    const source = context.createBufferSource();
+    source.buffer = decoded;
+    source.connect(context.destination);
+
+    audioSourceRef.current = source;
+    source.onended = () => {
+      if (audioSourceRef.current === source) {
+        audioSourceRef.current.disconnect();
+        audioSourceRef.current = null;
+      }
+    };
+    source.start(0);
+  }
+
+  async function playSpeechElevenLabs(text: string) {
+    stopAudio();
+    setLoadingPhase("synth");
+    setEphemeralLines(["PLEASE WAIT", "SYNTHESIZER INITIALIZING"]);
+
+    const audioData = await fetchSpeechAudio(text);
+
+    setLoadingPhase(null);
+    setEphemeralLines([]);
+
+    if (audioData) {
+      await playAudioBuffer(audioData);
+    }
   }
 
   async function ensureAudioContext() {
@@ -297,103 +398,8 @@ export function InteractiveTerminal() {
     return audioContextRef.current;
   }
 
-  function playViaAudioElement(audioData: ArrayBuffer) {
-    const blob = new Blob([audioData], { type: "audio/mpeg" });
-    const url = URL.createObjectURL(blob);
-
-    if (audioElementRef.current) {
-      audioElementRef.current.pause();
-      URL.revokeObjectURL(audioElementRef.current.src);
-    }
-
-    const audio = new Audio(url);
-    (audio as unknown as Record<string, boolean>).playsInline = true;
-    audioElementRef.current = audio;
-    audio.onended = () => {
-      URL.revokeObjectURL(url);
-      audioElementRef.current = null;
-    };
-    audio.play().catch(() => {});
-  }
-
-  async function playSpeechBuffer(audioData: ArrayBuffer) {
-    stopAudio();
-
-    // On mobile, queue audio for the play button
-    if (isMobileRef.current) {
-      setPendingAudio(audioData.slice(0));
-      return;
-    }
-
-    const context = await ensureAudioContext();
-
-    if (!context) {
-      return;
-    }
-
-    if (context.state === "suspended") {
-      await context.resume();
-    }
-
-    const decoded = await context.decodeAudioData(audioData.slice(0));
-    const source = context.createBufferSource();
-    const preGain = context.createGain();
-    const postGain = context.createGain();
-    const lowpass = context.createBiquadFilter();
-    const highpass = context.createBiquadFilter();
-    const compressor = context.createDynamicsCompressor();
-
-    source.buffer = decoded;
-    source.playbackRate.value = 1.01;
-    source.detune.value = -75;
-
-    lowpass.type = "lowpass";
-    lowpass.frequency.value = 1500;
-    lowpass.Q.value = 1.15;
-
-    highpass.type = "highpass";
-    highpass.frequency.value = 360;
-    highpass.Q.value = 0.9;
-
-    compressor.threshold.value = -22;
-    compressor.knee.value = 1;
-    compressor.ratio.value = 3.6;
-    compressor.attack.value = 0.0004;
-    compressor.release.value = 0.04;
-
-    preGain.gain.value = 1.05;
-    postGain.gain.value = 0.91;
-
-    source.connect(preGain);
-    preGain.connect(lowpass);
-    lowpass.connect(highpass);
-    highpass.connect(compressor);
-    compressor.connect(postGain);
-    postGain.connect(context.destination);
-
-    audioSourceRef.current = source;
-    source.onended = () => {
-      if (audioSourceRef.current === source) {
-        compressor.disconnect();
-        lowpass.disconnect();
-        highpass.disconnect();
-        preGain.disconnect();
-        postGain.disconnect();
-        audioSourceRef.current.disconnect();
-        audioSourceRef.current = null;
-      }
-    };
-    source.start(0);
-  }
-
   async function playSpeech(text: string) {
-    const audioData = await fetchSpeechAudio(text);
-
-    if (!audioData) {
-      return;
-    }
-
-    await playSpeechBuffer(audioData);
+    await playSpeechElevenLabs(text);
   }
 
   function handleSubmit(submittedInput: string) {
@@ -425,12 +431,12 @@ export function InteractiveTerminal() {
   }
 
   async function revealLocalLines(lines: string[], speechText?: string) {
-    let speechAudio: ArrayBuffer | null = null;
+    let audioData: ArrayBuffer | null = null;
 
     if (speechText && sessionRef.current.voiceEnabled) {
       setLoadingPhase("synth");
       setEphemeralLines(["PLEASE WAIT", "SYNTHESIZER INITIALIZING"]);
-      speechAudio = await fetchSpeechAudio(speechText);
+      audioData = await fetchSpeechAudio(speechText);
     }
 
     setLoadingPhase(null);
@@ -441,8 +447,8 @@ export function InteractiveTerminal() {
       speech: null,
     }));
 
-    if (speechAudio) {
-      await playSpeechBuffer(speechAudio);
+    if (audioData) {
+      await playAudioBuffer(audioData);
     }
   }
 
@@ -533,10 +539,13 @@ export function InteractiveTerminal() {
 
     // Unlock AudioContext on first touch (required for iOS/mobile)
     const unlockAudio = () => {
-      void ensureAudioContext();
+      void ensureAudioContext().then(() => preloadLetterSounds());
     };
     terminalHostRef.current.addEventListener("touchstart", unlockAudio, { once: true });
     terminalHostRef.current.addEventListener("click", unlockAudio, { once: true });
+
+    // Preload letter sounds for desktop
+    void ensureAudioContext().then(() => preloadLetterSounds());
 
     terminalRef.current = term;
     fitAddonRef.current = fitAddon;
@@ -563,6 +572,10 @@ export function InteractiveTerminal() {
 
       if (data >= " " && data !== "\u007f") {
         void ensureAudioContext();
+        // Play letter sound during NAME phase
+        if (sessionRef.current.phase === "NAME" && /^[a-zA-Z]$/.test(data)) {
+          playLetterSound(data);
+        }
         setCurrentInput((value) => `${value}${data}`);
       }
     });
