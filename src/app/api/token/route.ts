@@ -3,6 +3,8 @@ import { generateToken } from "@/lib/api-guard";
 
 const ALLOWED_ORIGINS = [
   "https://drsbaitsogpt.vercel.app",
+  "https://www.doctorsbaitso.com",
+  "https://doctorsbaitso.com",
   "http://localhost:3000",
   "http://localhost:3001",
 ];

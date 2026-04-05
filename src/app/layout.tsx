@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
-const siteUrl = "https://drsbaitsogpt.vercel.app";
+const siteUrl = "https://www.doctorsbaitso.com";
 const title = "Doctor Sbaitso AI — The Digital Therapist Returns";
 const description =
   "A modern homage to the early Creative Labs talking therapist: terse prompts, synthetic speech, strict confidence, and one question at a time.";

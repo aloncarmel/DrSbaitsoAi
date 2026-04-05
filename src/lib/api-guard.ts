@@ -8,6 +8,8 @@ const MAX_INPUT_LENGTH = 1000;
 
 const ALLOWED_ORIGINS = [
   "https://drsbaitsogpt.vercel.app",
+  "https://www.doctorsbaitso.com",
+  "https://doctorsbaitso.com",
   "http://localhost:3000",
   "http://localhost:3001",
 ];
