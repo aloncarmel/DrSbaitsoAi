@@ -1,0 +1,10 @@
+// Standard config. Deploys use wrangler.embedded.jsonc (`npm run deploy:embedded`).
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "drsbaitsogpt",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" }
+  // Vars/secrets: OPENAI_KEY, ELEVENLABS_KEY, ELEVENLABS_VOICE_ID, API_TOKEN_SECRET
+}

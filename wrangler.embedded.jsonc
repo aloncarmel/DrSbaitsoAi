@@ -1,0 +1,10 @@
+// Deploy config that embeds static assets in the worker bundle (npm run deploy:embedded).
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "drsbaitsogpt",
+  "main": "cf-worker.mjs",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "rules": [{ "type": "Data", "globs": ["**/*.bin"], "fallthrough": false }]
+  // Vars/secrets: OPENAI_KEY, ELEVENLABS_KEY, ELEVENLABS_VOICE_ID, API_TOKEN_SECRET
+}

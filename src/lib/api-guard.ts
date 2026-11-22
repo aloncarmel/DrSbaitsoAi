@@ -8,6 +8,7 @@ const MAX_INPUT_LENGTH = 1000;
 
 const ALLOWED_ORIGINS = [
   "https://drsbaitsogpt.vercel.app",
+  "https://drsbaitsogpt.alontest.workers.dev",
   "https://www.doctorsbaitso.com",
   "https://doctorsbaitso.com",
   "http://localhost:3000",
@@ -18,8 +19,22 @@ const ALLOWED_ORIGINS = [
 
 const rateBuckets = new Map<string, { count: number; resetAt: number }>();
 
+let lastCleanup = 0;
+
+// Clean up stale buckets lazily (timers can't be started at module scope on Workers).
+function cleanupBuckets(now: number) {
+  if (now - lastCleanup < 60_000) return;
+  lastCleanup = now;
+  for (const [key, bucket] of rateBuckets) {
+    if (now > bucket.resetAt) {
+      rateBuckets.delete(key);
+    }
+  }
+}
+
 function rateLimit(ip: string, maxPerMinute: number): boolean {
   const now = Date.now();
+  cleanupBuckets(now);
   const bucket = rateBuckets.get(ip);
 
   if (!bucket || now > bucket.resetAt) {
@@ -34,16 +49,6 @@ function rateLimit(ip: string, maxPerMinute: number): boolean {
   bucket.count += 1;
   return true;
 }
-
-// Periodically clean up stale buckets
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, bucket] of rateBuckets) {
-    if (now > bucket.resetAt) {
-      rateBuckets.delete(key);
-    }
-  }
-}, 60_000);
 
 // --------------- Token helpers ---------------
 
@@ -118,6 +123,7 @@ export function guardRequest(
 
   // 3. Rate limit
   const ip =
+    request.headers.get("cf-connecting-ip") ??
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     request.headers.get("x-real-ip") ??
     "unknown";
